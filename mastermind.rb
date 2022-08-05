@@ -75,9 +75,9 @@ class Board
   end
 
   def print_former_suggestions
-    @previous_suggestions.each do |suggestion|
+    @previous_suggestions.reverse.each do |suggestion|
       puts SUGGESTIONS_SIDE
-      print ['||', '  '.colorize_background(suggestion[0]), '||', '  '.colorize_background(suggestion[1]), '||', '  '.colorize_background(suggestion[2]), '||', '  '.colorize_background(suggestion[3]), '||', "    ", '|'] + "\n"
+      print_individual_former_suggestion(suggestion)
       puts SUGGESTIONS_SIDE
     end
   end
@@ -115,6 +115,19 @@ class Board
         suggestion_index += 1
       end
       @current_suggestion['feedback'].each { |symbol| print symbol } if item == '    '
+    end
+    print "\n"
+  end
+
+  def print_individual_former_suggestion(suggestion)
+    suggestion_index = 0
+    ['||', '  ', '||', '  ', '||', '  ', '||', '  ', '||', '    ', '|'].each do |item|
+      print item if ['||', '|'].include?(item)
+      if item == '  '
+        print item.colorize_background(suggestion[0][suggestion_index])
+        suggestion_index += 1
+      end
+      suggestion['feedback'].each { |symbol| print symbol } if item == '    '
     end
     print "\n"
   end
@@ -347,7 +360,7 @@ end
 
 def play_game
   components_array = initialize_components
-  play_turn(components_array)
+  play_turn(*components_array)
 end
 
 def initialize_components
@@ -359,18 +372,18 @@ def initialize_components
   [board, player_array, ruleset]
 end
 
-def play_turn(components_array)
-  print_screen(components_array[0], components_array[1])
-  guesser_index = components_array[1].index { |player| player.role == 'guesser' }
-  creator_index = components_array[1].index { |player| player.role == 'creator' }
-  current_suggestion = components_array[1][guesser_index].request_suggestion_from_player
-  components_array[0].retrieve_suggestion(current_suggestion)
-  current_feedback = components_array[2].compare_current_suggestion(current_suggestion)
-  components_array[0].retrieve_feedback(current_feedback)
-  components_array[1][creator_index].calculate_score(components_array[0])
-  print_screen(components_array[0], components_array[1])
+def play_turn(board, players, ruleset)
+  print_screen(board, players)
+  guesser_index = players.index { |player| player.role == 'guesser' }
+  creator_index = players.index { |player| player.role == 'creator' }
+  current_suggestion = players[guesser_index].request_suggestion_from_player
+  board.retrieve_suggestion(current_suggestion)
+  current_feedback = ruleset.compare_current_suggestion(current_suggestion)
+  board.retrieve_feedback(current_feedback)
+  players[creator_index].calculate_score(board)
+  print_screen(board, players)
   wait_for_any_input
-  components_array[0].reset_board_for_next_suggestion
+  board.reset_board_for_next_suggestion
 end
 
 def print_screen(board, players)
