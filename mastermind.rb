@@ -1,3 +1,5 @@
+# frozen_string_literal: false
+
 require 'string_colorizer'
 
 # The Board class is used to print the board and display the guesser's former suggestions as they play.
@@ -16,7 +18,7 @@ class Board
     @game_over = false
   end
 
-  attr_reader :current_suggestion, :game_over
+  attr_reader :current_turn, :secret_code, :current_suggestion, :game_over
 
   def print_board
     print_secret_code_side
@@ -33,15 +35,8 @@ class Board
     @game_over = code_guessed?
   end
 
-  def print_text_feedback
-    feedback = @current_suggestion['feedback']
-    puts 'None of your guesses matches the secret code!' if feedback.all?('x')
-    print_text_perfect_matches(feedback)
-    print_text_partial_matches(feedback)
-  end
-
   def reset_board_for_next_suggestion
-    @previous_suggestions.push(@current_suggestion)
+    @previous_suggestions.push(@current_suggestion.dup)
     @current_suggestion.clear
     @current_turn += 1
   end
@@ -75,31 +70,14 @@ class Board
   end
 
   def print_former_suggestions
+    turn_considered = @current_turn - 1
     @previous_suggestions.reverse.each do |suggestion|
       puts SUGGESTIONS_SIDE
-      print_individual_former_suggestion(suggestion)
+      print_individual_former_suggestion(suggestion, turn_considered)
       puts SUGGESTIONS_SIDE
+      turn_considered -= 1
     end
-  end
-
-  def print_text_perfect_matches(feedback)
-    if feedback.count('o'.colorize('red')).zero? && feedback.all?('x') == false
-      puts 'None of your guesses perfectly matches the secret code!'
-    elsif feedback.count('o'.colorize('red')) == 1
-      puts 'One of your guesses perfectly matches the secret code!'
-    elsif feedback.all?('o'.colorize('red'))
-      puts 'Congratulations, you guessed the secret code!'
-    else
-      puts "#{feedback.count('o'.colorize('red'))} of your guesses perfectly match the secret code!"
-    end
-  end
-
-  def print_text_partial_matches(feedback)
-    if feedback.count('o') == 1
-      puts 'One of your guesses is in the secret code, but in a different place.'
-    elsif feedback.count('o') > 1
-      puts "#{feedback.count('o')} of your guesses are in the secret code, but in different places."
-    end
+    puts LIMITS
   end
 
   def code_guessed?
@@ -119,12 +97,12 @@ class Board
     print "\n"
   end
 
-  def print_individual_former_suggestion(suggestion)
+  def print_individual_former_suggestion(suggestion, turn_considered)
     suggestion_index = 0
     ['||', '  ', '||', '  ', '||', '  ', '||', '  ', '||', '    ', '|'].each do |item|
       print item if ['||', '|'].include?(item)
       if item == '  '
-        print item.colorize_background(suggestion[0][suggestion_index])
+        print item.colorize_background(suggestion["suggestion n°#{turn_considered}"][suggestion_index])
         suggestion_index += 1
       end
       suggestion['feedback'].each { |symbol| print symbol } if item == '    '
@@ -147,34 +125,40 @@ end
 
 # The Rules class is used to determine the basic rules followed by the game and to check for victory conditions.
 class Rules
-  def initialize(creator, secret_code, turn_limit = 12)
+  def initialize(creator, turn_limit = 12)
     @creator = creator
-    @secret_code = secret_code
     @turn_limit = turn_limit
   end
 
-  def compare_current_suggestion(current_suggestion)
-    1 if current_suggestion == @secret_code
-    perfect_matches = check_for_exact_matches(current_suggestion)
-    partial_matches = check_for_partial_matches(current_suggestion)
+  def compare_current_suggestion(current_suggestion, board)
+    1 if current_suggestion == board.secret_code
+    perfect_matches = check_for_exact_matches(current_suggestion, board)
+    partial_matches = check_for_partial_matches(current_suggestion, board)
     assign_matching_symbols(perfect_matches, partial_matches)
+  end
+
+  def print_text_feedback(board)
+    feedback = board.current_suggestion['feedback']
+    puts 'None of your guesses matches the secret code!' if feedback.all?('x')
+    print_text_perfect_matches(feedback)
+    print_text_partial_matches(feedback)
   end
 
   private
 
-  def check_for_exact_matches(current_suggestion)
+  def check_for_exact_matches(current_suggestion, board)
     matches = 0
     current_suggestion.each_index do |index|
-      matches += 1 if current_suggestion[index] == @secret_code[index]
+      matches += 1 if current_suggestion[index] == board.secret_code[index]
     end
     matches
   end
 
-  def check_for_partial_matches(current_suggestion)
-    temp_secret_code = @secret_code.dup
+  def check_for_partial_matches(current_suggestion, board)
+    temp_secret_code = board.secret_code.dup
     matches = 0
     current_suggestion.each_index do |index|
-      if current_suggestion[index] != @secret_code[index] && temp_secret_code.include?(current_suggestion[index])
+      if current_suggestion[index] != board.secret_code[index] && temp_secret_code.include?(current_suggestion[index])
         matches += 1
         temp_secret_code.delete_at(temp_secret_code.index(current_suggestion[index]))
       end
@@ -188,6 +172,26 @@ class Rules
     partial_matches.times { symbol_array.push('o') }
     symbol_array.push('x') until symbol_array.length == 4
     symbol_array
+  end
+
+  def print_text_perfect_matches(feedback)
+    if feedback.count('o'.colorize('red')).zero? && feedback.all?('x') == false
+      puts 'None of your guesses perfectly matches the secret code!'
+    elsif feedback.count('o'.colorize('red')) == 1
+      puts 'One of your guesses perfectly matches the secret code!'
+    elsif feedback.all?('o'.colorize('red'))
+      puts 'Congratulations, you guessed the secret code!'
+    else
+      puts "#{feedback.count('o'.colorize('red'))} of your guesses perfectly match the secret code!"
+    end
+  end
+
+  def print_text_partial_matches(feedback)
+    if feedback.count('o') == 1
+      puts 'One of your guesses is in the secret code, but in a different place.'
+    elsif feedback.count('o') > 1
+      puts "#{feedback.count('o')} of your guesses are in the secret code, but in different places."
+    end
   end
 end
 
@@ -319,7 +323,13 @@ end
 
 # The HumanPlayer class saves date about potential human players.
 class HumanPlayer < Player
+  def initialize(human, name, role)
+    super
+    @was_creator = 2
+  end
+
   attr_reader :name, :score
+  attr_accessor :was_creator, :role
 
   def interrogate_creator
     instruct_creator
@@ -339,6 +349,7 @@ class HumanPlayer < Player
   private
 
   def instruct_creator
+    puts "Your turn to create a code, #{@name}!" if @was_creator.zero?
     puts "What will the secret code be, #{@name}?"
     instruct_about_colors
   end
@@ -360,45 +371,75 @@ end
 
 def play_game
   components_array = initialize_components
-  play_turn(*components_array)
+  play_turn(*components_array) until components_array[0].game_over == true || components_array[0].current_turn == 13
+  components_array = reinitialize_for_role_inversion(components_array)
+  play_turn(*components_array) until components_array[0].game_over == true || components_array[0].current_turn == 13
+  compare_scores(components_array[1])
 end
 
 def initialize_components
   player_array = Player.initialize_players
   creator_index = player_array.index { |player| player.role == 'creator' }
   secret_code = player_array[creator_index].interrogate_creator
-  ruleset = Rules.new(player_array[creator_index], secret_code)
+  ruleset = Rules.new(player_array[creator_index])
   board = Board.new(secret_code)
   [board, player_array, ruleset]
 end
 
+def reinitialize_for_role_inversion(components_array)
+  components_array[1] = exchange_roles(components_array[1])
+  creator_index = components_array[1].index { |player| player.role == 'creator' }
+  secret_code = components_array[1][creator_index].interrogate_creator
+  components_array[0] = Board.new(secret_code)
+  components_array
+end
+
 def play_turn(board, players, ruleset)
-  print_screen(board, players)
   guesser_index = players.index { |player| player.role == 'guesser' }
   creator_index = players.index { |player| player.role == 'creator' }
-  current_suggestion = players[guesser_index].request_suggestion_from_player
-  board.retrieve_suggestion(current_suggestion)
-  current_feedback = ruleset.compare_current_suggestion(current_suggestion)
-  board.retrieve_feedback(current_feedback)
-  players[creator_index].calculate_score(board)
-  print_screen(board, players)
+  print_screen(board, players, ruleset)
+  process_suggestion(board, players, ruleset, guesser_index, creator_index)
+  print_screen(board, players, ruleset)
   wait_for_any_input
   board.reset_board_for_next_suggestion
 end
 
-def print_screen(board, players)
+def print_screen(board, players, ruleset)
   puts "\e[H\e[2J"
   board.print_board
   players.each do |player|
     print "#{player.name}: #{player.score}   "
   end
   print "\n"
-  board.print_text_feedback if board.current_suggestion != {}
+  ruleset.print_text_feedback(board) if board.current_suggestion != {}
+end
+
+def process_suggestion(board, players, ruleset, guesser_index, creator_index)
+  current_suggestion = players[guesser_index].request_suggestion_from_player
+  board.retrieve_suggestion(current_suggestion)
+  current_feedback = ruleset.compare_current_suggestion(current_suggestion, board)
+  board.retrieve_feedback(current_feedback)
+  players[creator_index].calculate_score(board)
 end
 
 def wait_for_any_input
   puts 'Press any key to continue.'
   $stdin.gets(1)
+end
+
+def exchange_roles(player_array)
+  current_guesser_index = player_array.index { |player| player.role == 'guesser' }
+  current_creator_index = player_array.index { |player| player.role == 'creator' }
+  player_array[current_guesser_index].was_creator = 0
+  player_array[current_creator_index].was_creator = 1
+  player_array[current_guesser_index].role = 'creator'
+  player_array[current_creator_index].role = 'guesser'
+  player_array
+end
+
+def compare_scores(players)
+  winner = players.max { |player1, player2| player1.score <=> player2.score }
+  puts "#{winner.name} wins!"
 end
 
 play_game
