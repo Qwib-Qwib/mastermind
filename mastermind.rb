@@ -1,5 +1,6 @@
 # frozen_string_literal: false
 
+require 'io/console'
 require 'string_colorizer'
 
 # The Board class is used to print the board and display the guesser's former suggestions as they play.
@@ -332,6 +333,7 @@ class HumanPlayer < Player
   attr_accessor :was_creator, :role
 
   def interrogate_creator
+    puts "\e[H\e[2J"
     instruct_creator
     secret_input = gets.chomp.downcase.split.delete_if { |element| %w[white blue red yellow green cyan].include?(element) == false }
     secret_input = reject_input(secret_input)
@@ -369,6 +371,11 @@ class HumanPlayer < Player
   end
 end
 
+def mastermind_wrapper
+  play_game
+  ask_for_retry
+end
+
 def play_game
   components_array = initialize_components
   play_turn(*components_array) until components_array[0].game_over == true || components_array[0].current_turn == 13
@@ -400,7 +407,7 @@ def play_turn(board, players, ruleset)
   print_screen(board, players, ruleset)
   process_suggestion(board, players, ruleset, guesser_index, creator_index)
   print_screen(board, players, ruleset)
-  wait_for_any_input
+  wait_for_enter
   board.reset_board_for_next_suggestion
 end
 
@@ -422,8 +429,8 @@ def process_suggestion(board, players, ruleset, guesser_index, creator_index)
   players[creator_index].calculate_score(board)
 end
 
-def wait_for_any_input
-  puts 'Press any key to continue.'
+def wait_for_enter
+  puts 'Press the Enter key to continue.'
   $stdin.gets(1)
 end
 
@@ -438,8 +445,24 @@ def exchange_roles(player_array)
 end
 
 def compare_scores(players)
-  winner = players.max { |player1, player2| player1.score <=> player2.score }
-  puts "#{winner.name} wins!"
+  if players[0].score == players[1].score
+    puts "It's a draw!"
+  else
+    winner = players.max { |player1, player2| player1.score <=> player2.score }
+    puts "#{winner.name} wins!"
+  end
 end
 
-play_game
+def ask_for_retry
+  puts 'Retry? (y/n)'
+  answer = gets.chomp.downcase
+  mastermind_wrapper if answer == 'y'
+  while %w[y n].include?(answer) == false
+    if answer != 'n'
+      puts 'Invalid answer!'
+      answer = gets.chomp.downcase
+    end
+  end
+end
+
+mastermind_wrapper
