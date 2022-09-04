@@ -19,7 +19,7 @@ class Board
     @game_over = false
   end
 
-  attr_reader :current_turn, :secret_code, :current_suggestion, :game_over
+  attr_reader :current_turn, :secret_code, :current_suggestion, :previous_suggestions, :game_over
 
   def print_board
     print_secret_code_side
@@ -158,6 +158,7 @@ class Rules
   def check_for_partial_matches(current_suggestion, board)
     temp_secret_code = board.secret_code.dup
     matches = 0
+    place_dummy_colors_for_exact_matches(current_suggestion, temp_secret_code)
     current_suggestion.each_index do |index|
       if current_suggestion[index] != board.secret_code[index] && temp_secret_code.include?(current_suggestion[index])
         matches += 1
@@ -165,6 +166,12 @@ class Rules
       end
     end
     matches
+  end
+
+  def place_dummy_colors_for_exact_matches(current_suggestion, temp_secret_code)
+    current_suggestion.each_index do |index|
+      temp_secret_code[index] = 'exact' if current_suggestion[index] == temp_secret_code[index]
+    end
   end
 
   def assign_matching_symbols(perfect_matches, partial_matches)
@@ -230,7 +237,11 @@ class Player
       player1_human = player_human?(0)
       player1_name = define_player_name(0, player1_human)
       player1_role = define_player_role(0)
-      player1_human == true ? HumanPlayer.new(player1_human, player1_name, player1_role) : ComputerPlayer.new(player1_human, player1_name, player1_role)
+      if player1_human == true
+        HumanPlayer.new(player1_human, player1_name, player1_role)
+      else
+        ComputerPlayer.new(player1_human, player1_name, player1_role)
+      end
     end
 
     def initialize_player_two
@@ -296,7 +307,13 @@ class ComputerPlayer < Player
     super
     @name += " #{ComputerPlayer.computers_number}"
     ComputerPlayer.computers_number += 1
+    @guesses_set = generate_guesses_list
+    @was_creator = 2
+    @last_move = []
   end
+
+  attr_reader :name, :score
+  attr_accessor :guesses_set, :was_creator, :role, :last_move
 
   def interrogate_creator
     secret_code = []
@@ -304,8 +321,13 @@ class ComputerPlayer < Player
     secret_code
   end
 
-  def request_suggestion_from_player
-
+  def request_suggestion_from_player(board)
+    if board.current_turn == 1
+      move = perform_move1
+    else
+      move = perform_move2(board)
+    end
+    @last_move = move
   end
 
   private
@@ -319,6 +341,64 @@ class ComputerPlayer < Player
     when 4 then 'green'
     when 5 then 'cyan'
     end
+  end
+
+  def generate_guesses_list
+    combinations_enumerator = %w[white blue red yellow green cyan].repeated_permutation(4)
+    combinations_enumerator.map { |element| element }
+  end
+
+  def perform_move1
+    openers_list = @guesses_set.select do |element|
+      element[0] == element[1] && element[2] == element[3] && element[0] != element[2]
+    end
+    openers_list.sample
+  end
+
+  def perform_move2(board)
+    silently_evaluate(board)
+    @last_move = @guesses_set.sample
+  end
+
+  def silently_evaluate(board)
+    @guesses_set.delete(@last_move)
+    partial_matches = board.previous_suggestions.last['feedback'].count('o')
+    perfect_matches = board.previous_suggestions.last['feedback'].count("\e[31mo\e[0m") # Si l'expression du count n'est pas entre double guillemets, la recherche ne foncitonne pas.
+    zero_match_check if partial_matches.zero? && perfect_matches.zero?
+    color_presence_check(partial_matches, perfect_matches) if (partial_matches + perfect_matches).positive?
+    perfect_position_check(perfect_matches) if perfect_matches.zero? == false
+  end
+
+  def zero_match_check
+    @guesses_set.delete_if { |potential_solution| potential_solution.intersect?(@last_move) == true }
+  end
+
+  def color_presence_check(partial_matches, perfect_matches)
+    @guesses_set.delete_if { |potential_solution| enough_colors?(potential_solution, partial_matches, perfect_matches) == false }
+  end
+
+  def enough_colors?(potential_solution, partial_matches, perfect_matches)
+    editable_solution = potential_solution.dup
+    matches = 0
+    @last_move.each do |color|
+      if editable_solution.include?(color)
+        editable_solution.delete_at(editable_solution.index(color))
+        matches += 1
+      end
+    end
+    partial_matches + perfect_matches == matches
+  end
+
+  def perfect_position_check(perfect_matches)
+    @guesses_set.delete_if { |potential_solution| exact_color_matching?(potential_solution, perfect_matches) == false }
+  end
+
+  def exact_color_matching?(potential_solution, perfect_matches)
+    matches = 0
+    @last_move.each_index do |index|
+      matches += 1 if @last_move[index] == potential_solution[index]
+    end
+    matches == perfect_matches
   end
 end
 
@@ -341,7 +421,7 @@ class HumanPlayer < Player
     secret_input
   end
 
-  def request_suggestion_from_player
+  def request_suggestion_from_player(_board)
     puts "Type your guess, #{@name}!"
     instruct_about_colors
     input = gets.chomp.downcase.split.delete_if { |element| %w[white blue red yellow green cyan].include?(element) == false }
@@ -422,7 +502,7 @@ def print_screen(board, players, ruleset)
 end
 
 def process_suggestion(board, players, ruleset, guesser_index, creator_index)
-  current_suggestion = players[guesser_index].request_suggestion_from_player
+  current_suggestion = players[guesser_index].request_suggestion_from_player(board)
   board.retrieve_suggestion(current_suggestion)
   current_feedback = ruleset.compare_current_suggestion(current_suggestion, board)
   board.retrieve_feedback(current_feedback)
