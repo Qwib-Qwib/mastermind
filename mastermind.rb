@@ -1,7 +1,7 @@
 # frozen_string_literal: false
 
 require 'io/console'
-require 'string_colorizer'
+require_relative 'string_colorizer'
 
 # The Board class is used to print the board and display the guesser's former suggestions as they play.
 class Board
