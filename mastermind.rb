@@ -248,7 +248,11 @@ class Player
       player2_human = player_human?(1)
       player2_name = define_player_name(1, player2_human)
       player2_role = define_player_role(1)
-      player2_human == true ? HumanPlayer.new(player2_human, player2_name, player2_role) : ComputerPlayer.new(player2_human, player2_name, player2_role)
+      if player2_human == true
+        HumanPlayer.new(player2_human, player2_name, player2_role)
+      else
+        ComputerPlayer.new(player2_human, player2_name, player2_role)
+      end
     end
 
     def player_human?(id)
@@ -356,14 +360,18 @@ class ComputerPlayer < Player
   end
 
   def perform_move2(board)
-    silently_evaluate(board)
+    evaluate_remaining_guesses(board)
     @last_move = @guesses_set.sample
   end
 
-  def silently_evaluate(board)
+  def evaluate_remaining_guesses(board)
     @guesses_set.delete(@last_move)
     partial_matches = board.previous_suggestions.last['feedback'].count('o')
-    perfect_matches = board.previous_suggestions.last['feedback'].count("\e[31mo\e[0m") # Si l'expression du count n'est pas entre double guillemets, la recherche ne foncitonne pas.
+    perfect_matches = board.previous_suggestions.last['feedback'].count("\e[31mo\e[0m")
+    move_deletion(partial_matches, perfect_matches)
+  end
+
+  def move_deletion(partial_matches, perfect_matches)
     zero_match_check if partial_matches.zero? && perfect_matches.zero?
     color_presence_check(partial_matches, perfect_matches) if (partial_matches + perfect_matches).positive?
     perfect_position_check(perfect_matches) if perfect_matches.zero? == false
@@ -374,7 +382,9 @@ class ComputerPlayer < Player
   end
 
   def color_presence_check(partial_matches, perfect_matches)
-    @guesses_set.delete_if { |potential_solution| enough_colors?(potential_solution, partial_matches, perfect_matches) == false }
+    @guesses_set.delete_if do |potential_solution|
+      enough_colors?(potential_solution, partial_matches, perfect_matches) == false
+    end
   end
 
   def enough_colors?(potential_solution, partial_matches, perfect_matches)
@@ -415,7 +425,9 @@ class HumanPlayer < Player
   def interrogate_creator
     puts "\e[H\e[2J"
     instruct_creator
-    secret_input = gets.chomp.downcase.split.delete_if { |element| %w[white blue red yellow green cyan].include?(element) == false }
+    secret_input = gets.chomp.downcase.split.delete_if do |element|
+      %w[white blue red yellow green cyan].include?(element) == false
+    end
     secret_input = reject_input(secret_input)
     puts "\e[H\e[2J"
     secret_input
@@ -424,7 +436,9 @@ class HumanPlayer < Player
   def request_suggestion_from_player(_board)
     puts "Type your guess, #{@name}!"
     instruct_about_colors
-    input = gets.chomp.downcase.split.delete_if { |element| %w[white blue red yellow green cyan].include?(element) == false }
+    input = gets.chomp.downcase.split.delete_if do |element|
+      %w[white blue red yellow green cyan].include?(element) == false
+    end
     reject_input(input)
   end
 
@@ -438,14 +452,26 @@ class HumanPlayer < Player
 
   def instruct_about_colors
     puts 'Write four colors from the following list, separated with spaces:'
-    print 'White '.colorize('white') + 'Blue '.colorize('blue') + 'Red '.colorize('red') + 'Yellow '.colorize('yellow') + 'Green '.colorize('green') + 'Cyan'.colorize('cyan') + "\n"
+    print_colorized_colors
     puts 'You can select the same color several times.'
+  end
+
+  def print_colorized_colors
+    print 'White '.colorize('white')
+    print 'Blue '.colorize('blue')
+    print 'Red '.colorize('red')
+    print 'Yellow '.colorize('yellow')
+    print 'Green '.colorize('green')
+    print 'Cyan'.colorize('cyan')
+    print "\n"
   end
 
   def reject_input(input)
     until input.length == 4
       puts 'Invalid answer!'
-      input = gets.chomp.downcase.split.delete_if { |element| %w[white blue red yellow green cyan].include?(element) == false }
+      input = gets.chomp.downcase.split.delete_if do |element|
+        %w[white blue red yellow green cyan].include?(element) == false
+      end
     end
     input
   end
