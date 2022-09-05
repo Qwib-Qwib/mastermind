@@ -33,7 +33,7 @@ class Board
 
   def retrieve_feedback(feedback)
     @current_suggestion['feedback'] = feedback
-    @game_over = code_guessed?
+    @game_over = @current_suggestion["suggestion n°#{@current_turn}"] == @secret_code
   end
 
   def reset_board_for_next_suggestion
@@ -79,10 +79,6 @@ class Board
       turn_considered -= 1
     end
     puts LIMITS
-  end
-
-  def code_guessed?
-    @current_suggestion["suggestion n°#{@current_turn}"] == @secret_code
   end
 
   def print_filled_line
