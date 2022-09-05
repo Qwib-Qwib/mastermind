@@ -326,11 +326,11 @@ class ComputerPlayer < Player
   end
 
   def request_suggestion_from_player(board)
-    if board.current_turn == 1
-      move = perform_move1
-    else
-      move = perform_move2(board)
-    end
+    move = if board.current_turn == 1
+             perform_move1
+           else
+             perform_move2(board)
+           end
     @last_move = move
   end
 
