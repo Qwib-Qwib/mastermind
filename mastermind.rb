@@ -558,13 +558,18 @@ end
 def ask_for_retry
   puts 'Retry? (y/n)'
   answer = gets.chomp.downcase
-  mastermind_wrapper if answer == 'y'
+  reset_game if answer == 'y'
   while %w[y n].include?(answer) == false
     if answer != 'n'
       puts 'Invalid answer!'
       answer = gets.chomp.downcase
     end
   end
+end
+
+def reset_game
+  ComputerPlayer.computers_number = 1
+  mastermind_wrapper
 end
 
 mastermind_wrapper
