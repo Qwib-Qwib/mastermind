@@ -365,29 +365,29 @@ class ComputerPlayer < Player
     @guesses_set.delete(@last_move)
     partial_matches = board.previous_suggestions.last['feedback'].count('o')
     perfect_matches = board.previous_suggestions.last['feedback'].count("\e[31mo\e[0m")
-    move_deletion(partial_matches, perfect_matches)
+    move_deletion(@guesses_set, @last_move, partial_matches, perfect_matches)
   end
 
-  def move_deletion(partial_matches, perfect_matches)
-    zero_match_check if partial_matches.zero? && perfect_matches.zero?
-    color_presence_check(partial_matches, perfect_matches) if (partial_matches + perfect_matches).positive?
-    perfect_position_check(perfect_matches) if perfect_matches.zero? == false
+  def move_deletion(decision_set_used, compared_move, partial_matches, perfect_matches)
+    zero_match_check(decision_set_used, compared_move) if partial_matches.zero? && perfect_matches.zero?
+    color_presence_check(decision_set_used, compared_move, partial_matches, perfect_matches) if (partial_matches + perfect_matches).positive?
+    perfect_position_check(decision_set_used, compared_move, perfect_matches) if perfect_matches.zero? == false
   end
 
-  def zero_match_check
-    @guesses_set.delete_if { |potential_solution| potential_solution.intersect?(@last_move) == true }
+  def zero_match_check(decision_set_used, compared_move)
+    decision_set_used.delete_if { |potential_solution| potential_solution.intersect?(compared_move) == true }
   end
 
-  def color_presence_check(partial_matches, perfect_matches)
-    @guesses_set.delete_if do |potential_solution|
-      enough_colors_to_match_feedback?(potential_solution, partial_matches, perfect_matches) == false
+  def color_presence_check(decision_set_used, compared_move, partial_matches, perfect_matches)
+    decision_set_used.delete_if do |potential_solution|
+      enough_colors_to_match_feedback?(compared_move, potential_solution, partial_matches, perfect_matches) == false
     end
   end
 
-  def enough_colors_to_match_feedback?(potential_solution, partial_matches, perfect_matches)
+  def enough_colors_to_match_feedback?(compared_move, potential_solution, partial_matches, perfect_matches)
     editable_solution = potential_solution.dup
     matches = 0
-    @last_move.each do |color|
+    compared_move.each do |color|
       if editable_solution.include?(color)
         editable_solution.delete_at(editable_solution.index(color))
         matches += 1
@@ -396,14 +396,14 @@ class ComputerPlayer < Player
     partial_matches + perfect_matches == matches
   end
 
-  def perfect_position_check(perfect_matches)
-    @guesses_set.delete_if { |potential_solution| exact_color_matching?(potential_solution, perfect_matches) == false }
+  def perfect_position_check(decision_set_used, compared_move, perfect_matches)
+    decision_set_used.delete_if { |potential_solution| exact_color_matching?(compared_move, potential_solution, perfect_matches) == false }
   end
 
-  def exact_color_matching?(potential_solution, perfect_matches)
+  def exact_color_matching?(compared_move, potential_solution, perfect_matches)
     matches = 0
-    @last_move.each_index do |index|
-      matches += 1 if @last_move[index] == potential_solution[index]
+    compared_move.each_index do |index|
+      matches += 1 if compared_move[index] == potential_solution[index]
     end
     matches == perfect_matches
   end
@@ -559,13 +559,13 @@ end
 def ask_for_retry
   puts 'Retry? (y/n)'
   answer = gets.chomp.downcase
-  reset_game if answer == 'y'
   while %w[y n].include?(answer) == false
     if answer != 'n'
       puts 'Invalid answer!'
       answer = gets.chomp.downcase
     end
   end
+  reset_game if answer == 'y'
 end
 
 def reset_game
