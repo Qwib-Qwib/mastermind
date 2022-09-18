@@ -307,6 +307,7 @@ class ComputerPlayer < Player
     super
     @name += " #{ComputerPlayer.computers_number}"
     ComputerPlayer.computers_number += 1
+    @unused_guesses_set = generate_guesses_list
     @guesses_set = generate_guesses_list
     @was_creator = 2
     @last_move = []
@@ -379,11 +380,11 @@ class ComputerPlayer < Player
 
   def color_presence_check(partial_matches, perfect_matches)
     @guesses_set.delete_if do |potential_solution|
-      enough_colors?(potential_solution, partial_matches, perfect_matches) == false
+      enough_colors_to_match_feedback?(potential_solution, partial_matches, perfect_matches) == false
     end
   end
 
-  def enough_colors?(potential_solution, partial_matches, perfect_matches)
+  def enough_colors_to_match_feedback?(potential_solution, partial_matches, perfect_matches)
     editable_solution = potential_solution.dup
     matches = 0
     @last_move.each do |color|
