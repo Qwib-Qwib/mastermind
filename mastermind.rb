@@ -207,8 +207,7 @@ class Player
     attr_accessor :taken_role
   end
 
-  def initialize(human, name, role)
-    @human = human
+  def initialize(name, role)
     @name = name
     @role = role
     @score = 0
@@ -234,9 +233,9 @@ class Player
       player1_name = define_player_name(0, player1_human)
       player1_role = define_player_role(0)
       if player1_human == true
-        HumanPlayer.new(player1_human, player1_name, player1_role)
+        HumanPlayer.new(player1_name, player1_role)
       else
-        ComputerPlayer.new(player1_human, player1_name, player1_role)
+        ComputerPlayer.new(player1_name, player1_role)
       end
     end
 
@@ -245,9 +244,9 @@ class Player
       player2_name = define_player_name(1, player2_human)
       player2_role = define_player_role(1)
       if player2_human == true
-        HumanPlayer.new(player2_human, player2_name, player2_role)
+        HumanPlayer.new(player2_name, player2_role)
       else
-        ComputerPlayer.new(player2_human, player2_name, player2_role)
+        ComputerPlayer.new(player2_name, player2_role)
       end
     end
 
@@ -513,7 +512,7 @@ class ComputerPlayer < Player
     attr_accessor :computers_number
   end
 
-  def initialize(human, name, role)
+  def initialize(name, role)
     super
     @name += " #{ComputerPlayer.computers_number}"
     ComputerPlayer.computers_number += 1
@@ -581,7 +580,7 @@ end
 
 # The HumanPlayer class saves date about potential human players.
 class HumanPlayer < Player
-  def initialize(human, name, role)
+  def initialize(name, role)
     super
     @was_creator = 2
   end
